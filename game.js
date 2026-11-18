@@ -13,6 +13,7 @@ const COLORS = [
 	'#e57373', // Z - red
 	'#90caf9', // J - pale blue
 	'#ffb74d', // L - orange
+	'#b0bec5', // Tuerca - gris metálico
 ];
 
 const PIECES = [
@@ -52,7 +53,15 @@ const PIECES = [
 		[7, 7, 7],
 		[0, 0, 0],
 	], // L
+	[
+		[8, 8, 8],
+		[8, 0, 8],
+		[8, 8, 8],
+	], // Tuerca (reto): hueco en el centro
 ];
+
+const NUT_TYPE = 8;
+const NUT_CHANCE = 0.12; // probabilidad de que salga la tuerca
 
 const GRID_COLORS = { dark: '#22222e', light: '#dfe2ee' };
 const THEME_KEY = 'tetris-theme';
@@ -92,7 +101,10 @@ function createBoard() {
 }
 
 function randomPiece() {
-	const type = Math.floor(Math.random() * 7) + 1;
+	const type =
+		Math.random() < NUT_CHANCE
+			? NUT_TYPE
+			: Math.floor(Math.random() * 7) + 1;
 	const shape = PIECES[type].map((row) => [...row]);
 	return {
 		type,
