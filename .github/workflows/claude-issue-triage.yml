@@ -108,6 +108,11 @@ jobs:
                ## Propuesta de solución  (pasos concretos, implementables)
                ## Cómo verificar
                ## Preguntas abiertas / información faltante
+               FORMATO: el contenido se publicará como comentario de GitHub, así que debe
+               ser GitHub Flavored Markdown válido: encabezados `##`, listas con `-` o `1.`,
+               código en bloques con ``` y lenguaje (```js), nombres de archivo/funciones en
+               `backticks`, tablas con `|` si ayudan, y listas de tareas `- [ ]` para pasos.
+               No uses HTML ni markdown no soportado por GitHub.
                Sé concreto y conciso. No inventes código inexistente: verifica en el repo.
             No modifiques ningún otro archivo.
 
