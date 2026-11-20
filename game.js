@@ -65,6 +65,9 @@ const NUT_CHANCE = 0.12; // probabilidad de que salga la tuerca
 
 const GRID_COLORS = { dark: '#22222e', light: '#dfe2ee' };
 const THEME_KEY = 'tetris-theme';
+const START_LEVEL_KEY = 'tetris-start-level';
+const MAX_START_LEVEL = 10;
+const RESUME_GUARD_MS = 200;
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
@@ -80,8 +83,22 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const controlsBtn = document.getElementById('controls-btn');
+const controlsList = document.getElementById('pause-controls');
+const startLevelSelect = document.getElementById('start-level');
 
 let theme = 'dark';
+let startLevel = 1; // nivel base de la partida en curso
+let nextStartLevel = 1; // nivel elegido en el menú para la próxima partida
+let inputBlockedUntil = 0;
+
+try {
+	const saved = parseInt(localStorage.getItem(START_LEVEL_KEY), 10);
+	if (saved >= 1 && saved <= MAX_START_LEVEL) nextStartLevel = saved;
+} catch (e) {}
 
 let board,
 	current,
@@ -168,8 +185,8 @@ function clearLines() {
 	if (cleared) {
 		lines += cleared;
 		score += (LINE_SCORES[cleared] || 0) * level;
-		level = Math.floor(lines / 10) + 1;
-		dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+		level = startLevel + Math.floor(lines / 10);
+		dropInterval = levelInterval(level);
 		updateHUD();
 	}
 }
@@ -287,17 +304,32 @@ function endGame() {
 	overlay.classList.remove('hidden');
 }
 
+function levelInterval(lvl) {
+	return Math.max(100, 1000 - (lvl - 1) * 90);
+}
+
+function showPauseMenu() {
+	controlsList.classList.add('hidden');
+	controlsBtn.setAttribute('aria-expanded', 'false');
+	startLevelSelect.value = String(nextStartLevel);
+	pauseMenu.classList.remove('hidden');
+	resumeBtn.focus();
+}
+
 function togglePause() {
 	if (gameOver) return;
 	paused = !paused;
 	if (!paused) {
+		pauseMenu.classList.add('hidden');
+		if (document.activeElement && document.activeElement.blur)
+			document.activeElement.blur();
+		// ignorar teclas retenidas justo al reanudar
+		inputBlockedUntil = performance.now() + RESUME_GUARD_MS;
 		lastTime = performance.now();
 		loop(lastTime);
 	} else {
 		cancelAnimationFrame(animId);
-		overlayTitle.textContent = 'PAUSA';
-		overlayScore.textContent = '';
-		overlay.classList.remove('hidden');
+		showPauseMenu();
 	}
 }
 
@@ -322,26 +354,36 @@ function init() {
 	board = createBoard();
 	score = 0;
 	lines = 0;
-	level = 1;
+	startLevel = nextStartLevel;
+	level = startLevel;
 	paused = false;
 	gameOver = false;
-	dropInterval = 1000;
+	dropInterval = levelInterval(level);
 	dropAccum = 0;
 	lastTime = performance.now();
 	next = randomPiece();
 	spawn();
 	updateHUD();
 	overlay.classList.add('hidden');
+	pauseMenu.classList.add('hidden');
+	inputBlockedUntil = performance.now() + RESUME_GUARD_MS;
 	cancelAnimationFrame(animId);
 	animId = requestAnimationFrame(loop);
 }
 
 document.addEventListener('keydown', (e) => {
-	if (e.code === 'KeyP') {
-		togglePause();
+	if (e.code === 'KeyP' || e.code === 'Escape') {
+		// Esc con el selector enfocado solo cierra el desplegable
+		if (e.code === 'Escape' && e.target === startLevelSelect) return;
+		if (!e.repeat) togglePause();
 		return;
 	}
+	// con el menú abierto no se procesa ningún input del juego
 	if (paused || gameOver) return;
+	if (performance.now() < inputBlockedUntil) {
+		if (e.code === 'Space') e.preventDefault();
+		return;
+	}
 	switch (e.code) {
 		case 'ArrowLeft':
 			if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -364,7 +406,36 @@ document.addEventListener('keydown', (e) => {
 	updateHUD();
 });
 
-restartBtn.addEventListener('click', init);
+restartBtn.addEventListener('click', () => {
+	init();
+	restartBtn.blur();
+});
+
+resumeBtn.addEventListener('click', () => {
+	resumeBtn.blur();
+	if (paused) togglePause();
+});
+
+pauseRestartBtn.addEventListener('click', () => {
+	pauseRestartBtn.blur();
+	init();
+});
+
+controlsBtn.addEventListener('click', () => {
+	const open = controlsList.classList.toggle('hidden') === false;
+	controlsBtn.setAttribute('aria-expanded', String(open));
+	controlsBtn.blur();
+});
+
+startLevelSelect.addEventListener('change', () => {
+	const v = parseInt(startLevelSelect.value, 10);
+	if (!(v >= 1 && v <= MAX_START_LEVEL)) return;
+	nextStartLevel = v;
+	try {
+		localStorage.setItem(START_LEVEL_KEY, String(nextStartLevel));
+	} catch (e) {}
+	startLevelSelect.blur();
+});
 
 function applyTheme(newTheme) {
 	theme = newTheme === 'light' ? 'light' : 'dark';
